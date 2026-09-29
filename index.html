@@ -28,7 +28,7 @@ main{padding:12px;max-width:600px;margin:auto}
 .in input{width:100%;border:0;padding:10px;font-size:1rem;background:transparent;min-width:0}.in input:focus{outline:2px solid var(--p);border-radius:8px}
 .in i{font-style:normal;color:var(--m);font-size:.8rem}
 .btn{width:100%;margin-top:8px;padding:14px;font-size:1.05rem;border:0;border-radius:8px;background:var(--p);color:#fff;font:inherit;font-weight:700;cursor:pointer}.ok .btn{background:var(--ok)}
-#st2{font-size:.75rem;margin-top:8px;opacity:.8}
+.ln{margin-bottom:6px}.lh{display:flex;justify-content:space-between;align-items:center;font-size:.8rem;font-weight:600;margin:10px 0 6px;padding-top:8px;border-top:1px dotted var(--b)}.rm{border:0;background:#fde8e8;color:#b42318;border-radius:6px;padding:5px 10px;font:inherit;font-size:.78rem;cursor:pointer}.add{width:100%;margin-top:4px;padding:10px;border:1px dashed var(--p);background:transparent;color:var(--p);border-radius:8px;font:inherit;font-weight:600;cursor:pointer}#st2{font-size:.75rem;margin-top:8px;opacity:.8}
 #toast{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);background:#111;color:#fff;padding:10px 16px;border-radius:9px;opacity:0;transition:.3s;pointer-events:none;z-index:9}#toast.on{opacity:1}
 .empty{text-align:center;color:var(--m);padding:30px}
 </style></head><body>
@@ -58,15 +58,16 @@ const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',
 D.forEach(s=>{M[s.id]=s;s.k=norm(s.id+' '+s.n+' '+s.z+' '+s.r)});
 let rec={};try{rec=JSON.parse(localStorage.getItem(LS)||'{}')}catch(e){}
 const persist=()=>{try{localStorage.setItem(LS,JSON.stringify(rec))}catch(e){}};
+const mig=r=>{for(const k of['cl','de']){if(!Array.isArray(r[k]))r[k]=[{lote:r[k+'Lote']??'',fec:r[k+'Fec']??'',pz:r[k+'Pz']??''}];['Lote','Fec','Pz','Cj'].forEach(x=>delete r[k+x])}return r};
+Object.keys(rec).forEach(id=>mig(rec[id]));
 let db=null;
 try{if(FIREBASE_CONFIG.projectId&&window.firebase){firebase.initializeApp(FIREBASE_CONFIG);db=firebase.firestore()}}catch(e){console.error(e)}
 const toast=m=>{const t=$('#toast');t.textContent=m;t.classList.add('on');clearTimeout(t._h);t._h=setTimeout(()=>t.classList.remove('on'),2200)};
 $('#sub').textContent='Leche Alpura Clásica / Deslac 4 Pack - Lotes Octubre - Total de tiendas: '+D.length;
 $('#st2').textContent=db?'● Sincronizando con Firebase':'● Modo local (sin Firebase configurado)';
 
-const prod=(l,k,sy,r)=>`<div class="pr"><div class="pl">${l}<span>Sistema: ${sy[0]} pz · ${sy[1]} cj</span></div><div class="in2"><label>Lote<input type="text" data-f="${k}Lote" value="${esc(r[k+'Lote']??'')}" placeholder="Ej. 1234A" autocapitalize="characters" autocomplete="off"></label><label>Fecha de vencimiento<input type="date" data-f="${k}Fec" value="${esc(r[k+'Fec']??'')}"></label></div><div class="in">
-<label><input type="number" inputmode="numeric" min="0" step="1" data-f="${k}Pz" value="${esc(r[k+'Pz']??'')}" placeholder="0"><i>pz</i></label>
-<label><input type="number" inputmode="numeric" min="0" step="1" data-f="${k}Cj" value="${esc(r[k+'Cj']??'')}" placeholder="0"><i>cj</i></label></div></div>`;
+const ln=(k,i,x)=>`<div class="ln" data-k="${k}" data-i="${i}">${i?`<div class="lh">Lote ${i+1}<button type="button" class="rm">Quitar</button></div>`:''}<div class="in2"><label>Lote<input type="text" data-f="lote" value="${esc(x.lote??'')}" placeholder="Ej. 1234A" autocapitalize="characters" autocomplete="off"></label><label>Fecha de vencimiento<input type="date" data-f="fec" value="${esc(x.fec??'')}"></label></div><div class="in"><label><input type="number" inputmode="numeric" min="0" step="1" data-f="pz" value="${esc(x.pz??'')}" placeholder="0"><i>pz</i></label></div></div>`;
+const prod=(l,k,sy,r)=>`<div class="pr"><div class="pl">${l}<span>Sistema: ${sy[0]} pz</span></div>${(r[k]&&r[k].length?r[k]:[{}]).map((x,i)=>ln(k,i,x)).join('')}<button type="button" class="add" data-k="${k}">+ Agregar otro lote / vencimiento</button></div>`;
 function card(s){const r=rec[s.id]||{},e=document.createElement('div');e.className='card'+(r.ok?' ok':'');e.dataset.id=s.id;
 e.innerHTML=`<div class="ch"><div><b>${esc(s.n)}</b><small>ID ${s.id} · ${esc(s.z)}</small></div><span class="badge">${r.ok?'✓ Confirmada':'Pendiente'}</span></div>`+prod('Alpura Clásica 4 Pack','cl',s.c,r)+prod('Alpura Deslac 4 Pack','de',s.d,r)+`<button class="btn">${r.ok?'Actualizar':'Confirmar'}</button>`;return e}
 
@@ -90,12 +91,18 @@ list.querySelectorAll('.reg').forEach(g=>{const v=[...g.querySelectorAll('.card'
 $('#emp').hidden=any}
 function redraw(id){const o=list.querySelector(`.card[data-id="${id}"]`);if(o)o.replaceWith(card(M[id]))}
 
-list.addEventListener('input',e=>{const c=e.target.closest('.card');if(!c||!e.target.dataset.f)return;
-(rec[c.dataset.id]??={})[e.target.dataset.f]=e.target.value;persist()});
-list.addEventListener('click',e=>{const b=e.target.closest('.btn');if(!b)return;const id=b.closest('.card').dataset.id,s=M[id],r=rec[id]??={};
-const F=['clPz','clCj','dePz','deCj'];
-for(const f of F){const v=r[f]===undefined||r[f]===''?0:Number(r[f]);if(!Number.isInteger(v)||v<0){toast('Usa solo números enteros ≥ 0');return}r[f]=v}
-for(const [k,n] of [['cl','Clásica'],['de','Deslactosada']]){r[k+'Lote']=String(r[k+'Lote']||'').trim().toUpperCase();r[k+'Fec']=r[k+'Fec']||'';if((r[k+'Pz']>0||r[k+'Cj']>0)&&(!r[k+'Lote']||!r[k+'Fec'])){toast('Falta lote y fecha de vencimiento en '+n);return}}
+list.addEventListener('input',e=>{const c=e.target.closest('.card'),l=e.target.closest('.ln');if(!c||!l||!e.target.dataset.f)return;
+const r=rec[c.dataset.id]??={},k=l.dataset.k;(r[k]??=[{}]);(r[k][+l.dataset.i]??={})[e.target.dataset.f]=e.target.value;persist()});
+list.addEventListener('click',e=>{const c=e.target.closest('.card');if(!c)return;const id=c.dataset.id,s=M[id],r=rec[id]??={};
+const ad=e.target.closest('.add'),rm=e.target.closest('.rm');
+if(ad){const k=ad.dataset.k;(r[k]??=[{}]).push({});persist();redraw(id);return}
+if(rm){const l=rm.closest('.ln');r[l.dataset.k].splice(+l.dataset.i,1);persist();redraw(id);return}
+if(!e.target.closest('.btn'))return;
+for(const [k,n] of [['cl','Clásica'],['de','Deslactosada']]){
+const a=(r[k]&&r[k].length?r[k]:[{}]).map(x=>({lote:String(x.lote||'').trim().toUpperCase(),fec:x.fec||'',pz:x.pz===undefined||x.pz===''?0:Number(x.pz)}));
+for(const x of a){if(!Number.isInteger(x.pz)||x.pz<0){toast('Usa solo números enteros ≥ 0');return}
+if(x.pz>0&&(!x.lote||!x.fec)){toast('Falta lote y fecha de vencimiento en '+n);return}}
+r[k]=a.filter((x,i)=>i===0||x.pz>0||x.lote||x.fec)}
 r.ok=true;r.ts=new Date().toISOString();persist();redraw(id);upd();filt();toast('Tienda '+s.n+' guardada');
 if(db)db.collection(COL).doc(String(id)).set({...r,id:s.id,tienda:s.n,region:s.r,zona:s.z}).catch(()=>toast('Error de red: quedó guardado localmente'))});
 ['#q','#zn','#st'].forEach(s=>$(s).addEventListener('input',filt));
@@ -103,12 +110,12 @@ $('#rg').addEventListener('input',()=>{zones();filt()});
 
 if(db)db.collection(COL).onSnapshot(qs=>{qs.docChanges().forEach(ch=>{if(ch.type==='removed')return;const id=ch.doc.id;if(!M[id])return;
 const a=document.activeElement;if(a&&a.closest&&a.closest('.card')?.dataset.id===id&&!ch.doc.metadata.hasPendingWrites)return;
-rec[id]=ch.doc.data();redraw(id)});persist();upd();filt();$('#st2').textContent='● En línea (Firebase)'},()=>{$('#st2').textContent='● Sin conexión: trabajando en local'});
+rec[id]=mig(ch.doc.data());redraw(id)});persist();upd();filt();$('#st2').textContent='● En línea (Firebase)'},()=>{$('#st2').textContent='● Sin conexión: trabajando en local'});
 
 $('#ex').addEventListener('click',()=>{const rows=[];
-D.forEach(s=>[['LECHE ALPURA CLASICA 4 PACK 1 LT LMB','cl',s.c],['LECHE ALPURA DESLAC 4 PACK 1 LT LMB','de',s.d]].forEach(([a,k,sy])=>{const r=rec[s.id]||{};
-rows.push({REGION:s.r,ZONA:s.z,'ID TIENDA':s.id,TIENDA:s.n,ARTICULO:a,'EXIST. SISTEMA PZ':sy[0],'EXIST. SISTEMA CJ':sy[1],
-'LOTE':r.ok?r[k+'Lote']||'':'','FECHA VENCIMIENTO':r.ok?r[k+'Fec']||'':'','PZ VENC. OCTUBRE':r.ok?+r[k+'Pz']:'','CJ VENC. OCTUBRE':r.ok?+r[k+'Cj']:'',ESTATUS:r.ok?'CONFIRMADA':'PENDIENTE','FECHA CAPTURA':r.ts?new Date(r.ts).toLocaleString('es-MX'):''})}));
+D.forEach(s=>[['LECHE ALPURA CLASICA 4 PACK 1 LT LMB','cl',s.c],['LECHE ALPURA DESLAC 4 PACK 1 LT LMB','de',s.d]].forEach(([a,k,sy])=>{const r=rec[s.id]||{},L=r.ok&&r[k]&&r[k].length?r[k]:[null];
+L.forEach((x,i)=>rows.push({REGION:s.r,ZONA:s.z,'ID TIENDA':s.id,TIENDA:s.n,ARTICULO:a,'EXIST. SISTEMA PZ':i?'':sy[0],
+LOTE:x?x.lote:'','FECHA VENCIMIENTO':x?x.fec:'','PZ VENC. OCTUBRE':x?x.pz:'',ESTATUS:r.ok?'CONFIRMADA':'PENDIENTE','FECHA CAPTURA':r.ts?new Date(r.ts).toLocaleString('es-MX'):''}))}));
 if(!window.XLSX){toast('No cargó la librería de Excel (revisa conexión)');return}
 const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(rows),'Inventario');
 XLSX.writeFile(wb,'existencias_octubre_'+new Date().toISOString().slice(0,10)+'.xlsx')});
